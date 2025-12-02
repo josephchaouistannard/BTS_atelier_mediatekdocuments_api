@@ -63,6 +63,12 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementInsert(string $table, ?array $champs) : ?int{
         switch($table){
+            case "livre":
+                return $this->ajouterLivre($champs);
+            case "dvd":
+                return $this->ajouterDvd($champs);
+            case "revue":
+                return $this->ajouterRevue($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -81,6 +87,12 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementUpdate(string $table, ?string $id, ?array $champs) : ?int{
         switch($table){
+            case "livre":
+                return $this->modifierLivre($champs);
+            case "dvd":
+                return $this->modifierDvd($champs);
+            case "revue":
+                return $this->modifierRevue($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -98,6 +110,12 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementDelete(string $table, ?array $champs) : ?int{
         switch($table){
+            case "livre":
+                return $this->supprimerLivreDvdRevue($champs);
+            case "dvd":
+                return $this->supprimerLivreDvdRevue($champs);
+            case "revue":
+                return $this->supprimerLivreDvdRevue($champs, livre_dvd: false);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -259,7 +277,7 @@ class MyAccessBDD extends AccessBDD {
 
     /**
      * récupère tous les exemplaires d'une revue
-     * @param array|null $champs 
+     * @param array|null $champs
      * @return array|null
      */
     private function selectExemplairesRevue(?array $champs) : ?array{
@@ -275,6 +293,379 @@ class MyAccessBDD extends AccessBDD {
         $requete .= "where e.id = :id ";
         $requete .= "order by e.dateAchat DESC";
         return $this->conn->queryBDD($requete, $champNecessaire);
-    }		    
-    
+    }
+
+    /**
+     * Ajouter un livre dans la BDD
+     * @param array $champs
+     * @return int|null
+     */
+    private function ajouterLivre(array $champs): ?int
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('IdRayon', $champs) ||
+            !array_key_exists('IdPublic', $champs) ||
+            !array_key_exists('IdGenre', $champs) ||
+            !array_key_exists('Titre', $champs)
+        ) {
+            return null;
+        }
+
+        // obtenir le prochain id
+        $requete = "SELECT MAX(id) AS max_id FROM livre;";
+        $resultat = $this->conn->queryBDD($requete);
+        if ($resultat && !empty($resultat)) {
+            $maxId = $resultat[0]['max_id'];
+            $id = str_pad(((string) ((int) $maxId + 1)), 5, "0", STR_PAD_LEFT);
+        } else {
+            $id = "00001";
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        INSERT INTO document (id, titre, image, idRayon, idPublic, idGenre) 
+        VALUES (:id, :titre, :image, :rayon, :public, :genre);
+
+        INSERT INTO livres_dvd (id) VALUES (:id);
+
+        INSERT INTO livre (id, ISBN, auteur, collection) 
+        VALUES (:id, :isbn, :auteur, :collection);
+
+        COMMIT;
+        ";
+
+        $champsRequete['id'] = $id;
+        $champsRequete['titre'] = $champs['Titre'];
+        $champsRequete['image'] = $champs['Image'];
+        $champsRequete['rayon'] = $champs['IdRayon'];
+        $champsRequete['public'] = $champs['IdPublic'];
+        $champsRequete['genre'] = $champs['IdGenre'];
+        $champsRequete['isbn'] = $champs['Isbn'];
+        $champsRequete['auteur'] = $champs['Auteur'];
+        $champsRequete['collection'] = $champs['Collection'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Modifier un livre dans la BDD
+     * @param array $champs
+     * @return int|null
+     */
+    private function modifierLivre(array $champs): ?int
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('Id', $champs) ||
+            !array_key_exists('IdRayon', $champs) ||
+            !array_key_exists('IdPublic', $champs) ||
+            !array_key_exists('IdGenre', $champs) ||
+            !array_key_exists('Titre', $champs)
+        ) {
+            return null;
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        UPDATE document 
+        SET titre = :titre, image = :image, idRayon = :rayon, idPublic = :public, idGenre = :genre
+        WHERE id = :id;
+
+        UPDATE livre 
+        SET ISBN = :isbn, auteur = :auteur, collection = :collection 
+        WHERE id = :id;
+
+        COMMIT;
+        ";
+
+        $champsRequete['id'] = $champs['Id'];
+        $champsRequete['titre'] = $champs['Titre'];
+        $champsRequete['image'] = $champs['Image'];
+        $champsRequete['rayon'] = $champs['IdRayon'];
+        $champsRequete['public'] = $champs['IdPublic'];
+        $champsRequete['genre'] = $champs['IdGenre'];
+        $champsRequete['isbn'] = $champs['Isbn'];
+        $champsRequete['auteur'] = $champs['Auteur'];
+        $champsRequete['collection'] = $champs['Collection'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Supprimer un document (livre, dvd ou revue) dans la BDD
+     * @param array $champs
+     * @param bool $livre_dvd true si le document est un livre ou un dvd, faux sinon
+     * @return int|null
+     */
+    private function supprimerLivreDvdRevue(array $champs, bool $livre_dvd = true): ?int
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (!array_key_exists('Id', $champs)) {
+            return null;
+        }
+        $champsRequete['id'] = $champs['Id'];
+
+        // vérifier la présence d'exemplaires
+        $requete = "SELECT COUNT(id) AS ex FROM exemplaire where id=:id;";
+        $resultat = $this->conn->queryBDD($requete, $champsRequete);
+        if ($resultat[0]['ex'] != 0) {
+            return null;
+        }
+
+        if ($livre_dvd) {
+            // vérifier la présence dans commandedocument
+            $requete = "SELECT COUNT(id) AS com FROM commandedocument where idLivreDvd=:id;";
+            $resultat = $this->conn->queryBDD($requete, $champsRequete);
+            if ($resultat[0]['com'] != 0) {
+                return null;
+            }
+        } else {
+            // vérifier dans abonnement
+            $requete = "SELECT COUNT(id) AS com FROM abonnement where idRevue=:id;";
+            $resultat = $this->conn->queryBDD($requete, $champsRequete);
+            if ($resultat[0]['com'] != 0) {
+                return null;
+            }
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        DELETE FROM livre WHERE id=:id;
+        DELETE FROM dvd WHERE id=:id;
+        DELETE FROM revue WHERE id=:id;
+
+        DELETE FROM livres_dvd WHERE id=:id;
+        
+        DELETE FROM document WHERE id=:id;
+
+        COMMIT;
+        ";
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Ajouter un dvd dans la BDD
+     * @param array $champs
+     * @return int|null
+     */
+    private function ajouterDvd(array $champs): ?int {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('IdRayon', $champs) ||
+            !array_key_exists('IdPublic', $champs) ||
+            !array_key_exists('IdGenre', $champs) ||
+            !array_key_exists('Titre', $champs)
+            ) {
+            return null;
+        }
+
+        // obtenir le prochain id
+        $requete = "SELECT MAX(id) AS max_id FROM dvd;";
+        $resultat = $this->conn->queryBDD($requete);
+        if ($resultat && !empty($resultat)) {
+            $maxId = $resultat[0]['max_id'];
+            $id = (string) ((int) $maxId + 1);
+        } else {
+            $id = "20001";
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        INSERT INTO document (id, titre, image, idRayon, idPublic, idGenre) 
+        VALUES (:id, :titre, :image, :rayon, :public, :genre);
+
+        INSERT INTO livres_dvd (id) VALUES (:id);
+
+        INSERT INTO dvd (id, synopsis, realisateur, duree) 
+        VALUES (:id, :synopsis, :realisateur, :duree);
+
+        COMMIT;
+        ";
+
+        $champsRequete['id'] = $id;
+        $champsRequete['titre'] = $champs['Titre'];
+        $champsRequete['image'] = $champs['Image'];
+        $champsRequete['rayon'] = $champs['IdRayon'];
+        $champsRequete['public'] = $champs['IdPublic'];
+        $champsRequete['genre'] = $champs['IdGenre'];
+        $champsRequete['synopsis'] = $champs['Synopsis'];
+        $champsRequete['realisateur'] = $champs['Realisateur'];
+        $champsRequete['duree'] = $champs['Duree'];
+        
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Modifier un dvd dans la BDD
+     * @param array $champs
+     * @return int|null
+     */
+    private function modifierDvd(array $champs): ?int
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('Id', $champs) ||
+            !array_key_exists('IdRayon', $champs) ||
+            !array_key_exists('IdPublic', $champs) ||
+            !array_key_exists('IdGenre', $champs) ||
+            !array_key_exists('Titre', $champs)
+        ) {
+            return null;
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        UPDATE document 
+        SET titre = :titre, image = :image, idRayon = :rayon, idPublic = :public, idGenre = :genre
+        WHERE id = :id;
+
+        UPDATE dvd 
+        SET synopsis = :synopsis, realisateur = :realisateur, duree = :duree 
+        WHERE id = :id;
+
+        COMMIT;
+        ";
+
+        $champsRequete['id'] = $champs['Id'];
+        $champsRequete['titre'] = $champs['Titre'];
+        $champsRequete['image'] = $champs['Image'];
+        $champsRequete['rayon'] = $champs['IdRayon'];
+        $champsRequete['public'] = $champs['IdPublic'];
+        $champsRequete['genre'] = $champs['IdGenre'];
+        $champsRequete['synopsis'] = $champs['Synopsis'];
+        $champsRequete['realisateur'] = $champs['Realisateur'];
+        $champsRequete['duree'] = $champs['Duree'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Ajouter une revue dans la BDD
+     * @param array $champs
+     * @return int|null
+     */
+    private function ajouterRevue(array $champs): ?int
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('IdRayon', $champs) ||
+            !array_key_exists('IdPublic', $champs) ||
+            !array_key_exists('IdGenre', $champs) ||
+            !array_key_exists('Titre', $champs)
+        ) {
+            return null;
+        }
+
+        // obtenir le prochain id
+        $requete = "SELECT MAX(id) AS max_id FROM revue;";
+        $resultat = $this->conn->queryBDD($requete);
+        if ($resultat && !empty($resultat)) {
+            $maxId = $resultat[0]['max_id'];
+            $id = (string) ((int) $maxId + 1);
+        } else {
+            $id = "10001";
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        INSERT INTO document (id, titre, image, idRayon, idPublic, idGenre) 
+        VALUES (:id, :titre, :image, :rayon, :public, :genre);
+
+        INSERT INTO revue (id, periodicite, delaiMiseADispo) 
+        VALUES (:id, :periodicite, :delaiMiseADispo);
+
+        COMMIT;
+        ";
+
+        $champsRequete['id'] = $id;
+        $champsRequete['titre'] = $champs['Titre'];
+        $champsRequete['image'] = $champs['Image'];
+        $champsRequete['rayon'] = $champs['IdRayon'];
+        $champsRequete['public'] = $champs['IdPublic'];
+        $champsRequete['genre'] = $champs['IdGenre'];
+        $champsRequete['periodicite'] = $champs['Periodicite'];
+        $champsRequete['delaiMiseADispo'] = $champs['DelaiMiseADispo'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Modifier une revue dans la BDD
+     * @param array $champs
+     * @return int|null
+     */
+    private function modifierRevue(array $champs): ?int
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('Id', $champs) ||
+            !array_key_exists('IdRayon', $champs) ||
+            !array_key_exists('IdPublic', $champs) ||
+            !array_key_exists('IdGenre', $champs) ||
+            !array_key_exists('Titre', $champs)
+        ) {
+            return null;
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        UPDATE document 
+        SET titre = :titre, image = :image, idRayon = :rayon, idPublic = :public, idGenre = :genre
+        WHERE id = :id;
+
+        UPDATE revue SET 
+        periodicite = :periodicite, delaiMiseADispo = :delaiMiseADispo 
+        WHERE id = :id;
+
+        COMMIT;
+        ";
+
+        $champsRequete['id'] = $champs['Id'];
+        $champsRequete['titre'] = $champs['Titre'];
+        $champsRequete['image'] = $champs['Image'];
+        $champsRequete['rayon'] = $champs['IdRayon'];
+        $champsRequete['public'] = $champs['IdPublic'];
+        $champsRequete['genre'] = $champs['IdGenre'];
+        $champsRequete['periodicite'] = $champs['Periodicite'];
+        $champsRequete['delaiMiseADispo'] = $champs['DelaiMiseADispo'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
 }
