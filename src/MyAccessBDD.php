@@ -33,19 +33,32 @@ class MyAccessBDD extends AccessBDD {
     protected function traitementSelect(string $table, ?array $champs) : ?array{
         switch($table){  
             case "livre" :
+                if (!empty($champs) && isset($champs['id'])) {
+                    return $this->selectLivre($champs);
+                }
                 return $this->selectAllLivres();
             case "dvd" :
+                if (!empty($champs) && isset($champs['id'])) {
+                    return $this->selectDvd($champs);
+                }
                 return $this->selectAllDvd();
             case "revue" :
                 return $this->selectAllRevues();
             case "exemplaire" :
                 return $this->selectExemplairesRevue($champs);
-            case "genre" :
-            case "public" :
-            case "rayon" :
-            case "etat" :
-                // select portant sur une table contenant juste id et libelle
+            case "commandes":
+                if (!empty($champs) && isset($champs['id'])) {
+                    return $this->selectCommandesDocuments($champs);
+                } elseif (!empty($champs) && isset($champs['type'])) {
+                    return $this->selectAllCommandesDocumentsDeType($champs);
+                }
+            case "suivi":
                 return $this->selectTableSimple($table);
+            case "genre":
+            case "public":
+            case "rayon":
+            case "etat":
+
             case "" :
                 // return $this->uneFonction(parametres);
             default:
@@ -69,6 +82,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->ajouterDvd($champs);
             case "revue":
                 return $this->ajouterRevue($champs);
+            case "commande":
+                return $this->ajouterCommandeDocument($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -93,6 +108,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->modifierDvd($champs);
             case "revue":
                 return $this->modifierRevue($champs);
+            case "commande":
+                return $this->modifierCommandeDocument($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -116,6 +133,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->supprimerLivreDvdRevue($champs);
             case "revue":
                 return $this->supprimerLivreDvdRevue($champs, livre_dvd: false);
+            case "commande":
+                return $this->supprimerCommandeDocument($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -243,22 +262,71 @@ class MyAccessBDD extends AccessBDD {
         $requete .= "join rayon r on r.id=d.idRayon ";
         $requete .= "order by titre ";		
         return $this->conn->queryBDD($requete);
-    }	
+    }
+
+    /**
+     * récupère une ligne de la table Livre et les tables associées par id
+     * @return array|null
+     */
+    private function selectLivre($champs): ?array
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $requete = "Select l.id, l.ISBN, l.auteur, d.titre, d.image, l.collection, ";
+        $requete .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
+        $requete .= "from livre l join document d on l.id=d.id ";
+        $requete .= "join genre g on g.id=d.idGenre ";
+        $requete .= "join public p on p.id=d.idPublic ";
+        $requete .= "join rayon r on r.id=d.idRayon ";
+        $requete .= "where l.id=:id ";
+        $requete .= "order by titre ";
+        $champsRequete['id'] = $champs['id'];
+        return $this->conn->queryBDD($requete, $champsRequete);
+    }
 
     /**
      * récupère toutes les lignes de la table DVD et les tables associées
      * @return array|null
      */
-    private function selectAllDvd() : ?array{
+    private function selectAllDvd(): ?array
+    {
         $requete = "Select l.id, l.duree, l.realisateur, d.titre, d.image, l.synopsis, ";
         $requete .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
         $requete .= "from dvd l join document d on l.id=d.id ";
         $requete .= "join genre g on g.id=d.idGenre ";
         $requete .= "join public p on p.id=d.idPublic ";
         $requete .= "join rayon r on r.id=d.idRayon ";
-        $requete .= "order by titre ";	
+        $requete .= "order by titre ";
         return $this->conn->queryBDD($requete);
-    }	
+    }
+
+    /**
+     * récupère une ligne de la table Dvd et les tables associées par id
+     * @return array|null
+     */
+    private function selectDvd($champs): ?array
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $requete = "Select l.id, l.duree, l.realisateur, d.titre, d.image, l.synopsis, ";
+        $requete .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
+        $requete .= "from dvd l join document d on l.id=d.id ";
+        $requete .= "join genre g on g.id=d.idGenre ";
+        $requete .= "join public p on p.id=d.idPublic ";
+        $requete .= "join rayon r on r.id=d.idRayon ";
+        $requete .= "where l.id=:id ";
+        $requete .= "order by titre ";
+        $champsRequete['id'] = $champs['id'];
+        return $this->conn->queryBDD($requete, $champsRequete);
+    }
 
     /**
      * récupère toutes les lignes de la table Revue et les tables associées
@@ -293,6 +361,171 @@ class MyAccessBDD extends AccessBDD {
         $requete .= "where e.id = :id ";
         $requete .= "order by e.dateAchat DESC";
         return $this->conn->queryBDD($requete, $champNecessaire);
+    }
+
+    /**
+     * Recupère toutes les commandes pour les livres et dvds
+     * @return array|null
+     */
+    private function selectAllCommandesDocumentsDeType($champs) : ?array {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('type', $champs)) {
+            return null;
+        }
+        $requete = "
+        SELECT cd.id, cd.nbExemplaire, cd.idLivreDvd, cd.idSuivi, s.libelle as suivi, c.dateCommande, c.montant 
+        FROM commandedocument cd 
+        join commande c on(cd.id=c.id) 
+        join suivi s on (cd.idSuivi=s.id) 
+        WHERE cd.idLivreDvd like :type 
+        ORDER BY c.dateCommande DESC";
+        if ($champs['type'] == "livre") {
+            $champsRequete['type'] = "0%";
+        } else {
+            $champsRequete['type'] = "2%";
+        }
+        return $this->conn->queryBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Recupère toutes les commandes pour les livres et dvds
+     * @return array|null
+     */
+    private function selectCommandesDocuments($champs): ?array
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $requete = "
+        SELECT cd.id, cd.nbExemplaire, cd.idLivreDvd, cd.idSuivi, s.libelle as suivi, c.dateCommande, c.montant 
+        FROM commandedocument cd 
+        join commande c on(cd.id=c.id) 
+        join suivi s on (cd.idSuivi=s.id) 
+        WHERE cd.idLivreDvd = :id 
+        ORDER BY c.dateCommande DESC";
+        $champsRequete['id'] = $champs['id'];
+        return $this->conn->queryBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Enregister une nouvelle commande de livre ou dvd
+     * @param mixed $champs
+     * @return int|null
+     */
+    private function ajouterCommandeDocument($champs) {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('IdLivreDvd', $champs) ||
+            !array_key_exists('IdSuivi', $champs) ||
+            !array_key_exists('NbExemplaire', $champs) ||
+            !array_key_exists('DateCommande', $champs) ||
+            !array_key_exists('Montant', $champs)
+        ) {
+            return null;
+        }
+
+        // obtenir le prochain id
+        $requete = "SELECT MAX(id) AS max_id FROM commande;";
+        $resultat = $this->conn->queryBDD($requete);
+        if ($resultat && !empty($resultat)) {
+            $maxId = $resultat[0]['max_id'];
+            $id = str_pad(((string) ((int) $maxId + 1)), 5, "0", STR_PAD_LEFT);
+        } else {
+            $id = "00001";
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        INSERT INTO commande (id, dateCommande, montant) 
+        VALUES (:Id, :DateCommande, :Montant);
+
+        INSERT INTO commandedocument (id, nbExemplaire, idLivreDvd, idSuivi) 
+        VALUES (:Id, :NbExemplaire, :IdLivreDvd, :IdSuivi);
+
+        COMMIT;
+        ";
+
+        $champsRequete['Id'] = $id;
+        $champsRequete['DateCommande'] = $champs['DateCommande'];
+        $champsRequete['Montant'] = $champs['Montant'];
+        $champsRequete['NbExemplaire'] = $champs['NbExemplaire'];
+        $champsRequete['IdLivreDvd'] = $champs['IdLivreDvd'];
+        $champsRequete['IdSuivi'] = $champs['IdSuivi'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Modifier une commande de livre ou dvd (seulement l'étape de suivi)
+     * @param mixed $champs
+     * @return int|null
+     */
+    private function modifierCommandeDocument($champs)
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('Id', $champs) ||
+            !array_key_exists('IdSuivi', $champs)
+        ) {
+            return null;
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        UPDATE commandedocument 
+        SET idSuivi = :IdSuivi 
+        WHERE id = :id;
+
+        COMMIT;
+        ";
+
+        $champsRequete['id'] = $champs['Id'];
+        $champsRequete['IdSuivi'] = $champs['IdSuivi'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Supprimer une commande de livre ou dvd
+     * @param mixed $champs
+     * @return int|null
+     */
+    public function supprimerCommandeDocument($champs) {
+       if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $champsRequete['id'] = $champs['id'];
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION;
+
+        DELETE FROM commandedocument WHERE id=:id; 
+        DELETE FROM commande WHERE id=:id;
+
+        COMMIT;
+        ";
+
+        return $this->conn->updateBDD($requete, $champsRequete); 
     }
 
     /**
