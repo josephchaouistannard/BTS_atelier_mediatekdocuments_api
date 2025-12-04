@@ -43,7 +43,17 @@ class MyAccessBDD extends AccessBDD {
                 }
                 return $this->selectAllDvd();
             case "revue" :
+                if (!empty($champs) && isset($champs['id'])) {
+                    return $this->selectRevue($champs);
+                }
                 return $this->selectAllRevues();
+            case "abonnements":
+                if (!empty($champs) && isset($champs['fin'])) {
+                    return $this->selectAbonnementsAvecFinProche();
+                } elseif (!empty($champs) && isset($champs['id'])) {
+                    return $this->selectAbonnementsDeRevue($champs);
+                }
+                return $this->selectAllAbonnements();
             case "exemplaire" :
                 return $this->selectExemplairesRevue($champs);
             case "commandes":
@@ -54,6 +64,7 @@ class MyAccessBDD extends AccessBDD {
                 }
             case "suivi":
                 return $this->selectTableSimple($table);
+
             case "genre":
             case "public":
             case "rayon":
@@ -84,6 +95,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->ajouterRevue($champs);
             case "commande":
                 return $this->ajouterCommandeDocument($champs);
+            case "abonnement":
+                return $this->ajouterAbonnement($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -135,6 +148,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->supprimerLivreDvdRevue($champs, livre_dvd: false);
             case "commande":
                 return $this->supprimerCommandeDocument($champs);
+            case "abonnement":
+                return $this->supprimerAbonnement($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -899,6 +914,150 @@ class MyAccessBDD extends AccessBDD {
         $champsRequete['periodicite'] = $champs['Periodicite'];
         $champsRequete['delaiMiseADispo'] = $champs['DelaiMiseADispo'];
 
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Retourne tous les abonnements
+     * @return array|null
+     */
+    private function selectAllAbonnements() {
+        $requete = "
+        SELECT a.id, c.dateCommande, a.dateFinAbonnement, c.montant, a.idRevue 
+        FROM abonnement a join commande c on (a.id=c.id) 
+        ORDER BY c.dateCommande DESC;
+        ";
+        return $this->conn->queryBDD($requete);
+    }
+
+    /**
+     * Retourne les abonnements d'une revue spécifique
+     * @param mixed $champs
+     * @return array|null
+     */
+    private function selectAbonnementsDeRevue($champs) {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $requete = "
+        SELECT a.id, c.dateCommande, a.dateFinAbonnement, c.montant, a.idRevue 
+        FROM abonnement a join commande c on (a.id=c.id) 
+        WHERE a.idRevue = :idRevue 
+        ORDER BY c.dateCommande DESC;
+        ";
+        $champsRequete['idRevue'] = $champs['id'];
+        return $this->conn->queryBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Retourne une revue spécifique
+     * @param mixed $champs
+     * @return array|null
+     */
+    private function selectRevue($champs) {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $requete = "Select l.id, l.periodicite, d.titre, d.image, l.delaiMiseADispo, ";
+        $requete .= "d.idrayon, d.idpublic, d.idgenre, g.libelle as genre, p.libelle as lePublic, r.libelle as rayon ";
+        $requete .= "from revue l join document d on l.id=d.id ";
+        $requete .= "join genre g on g.id=d.idGenre ";
+        $requete .= "join public p on p.id=d.idPublic ";
+        $requete .= "join rayon r on r.id=d.idRayon ";
+        $requete .= "WHERE l.id = :idRevue ";
+        $requete .= "order by titre ";
+        $champsRequete['idRevue'] = $champs['id'];
+        return $this->conn->queryBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Retourne les abonnements dont la date de fin est dans les 30 prochains jours
+     * @return array|null
+     */
+    private function selectAbonnementsAvecFinProche() {
+        $requete = "
+        SELECT a.id, c.dateCommande, a.dateFinAbonnement, c.montant, a.idRevue 
+        FROM abonnement a join commande c on (a.id=c.id) 
+        WHERE a.dateFinAbonnement < DATE_ADD(CURDATE(), INTERVAL 30 DAY) 
+        AND a.dateFinAbonnement >= CURDATE() 
+        ORDER BY a.dateFinAbonnement ASC;   
+        ";
+        return $this->conn->queryBDD($requete);
+    }
+
+    /**
+     * Enregistre un nouveau abonnement
+     * @param mixed $champs
+     * @return int|null
+     */
+    private function ajouterAbonnement($champs) {
+        if (empty($champs)) {
+            return null;
+        }
+        if (
+            !array_key_exists('DateCommande', $champs) ||
+            !array_key_exists('DateFinAbonnement', $champs) ||
+            !array_key_exists('IdRevue', $champs) ||
+            !array_key_exists('Montant', $champs)) {
+            return null;
+        }
+
+        // obtenir le prochain id
+        $requete = "SELECT MAX(id) AS max_id FROM commande;";
+        $resultat = $this->conn->queryBDD($requete);
+        if ($resultat && !empty($resultat)) {
+            $maxId = $resultat[0]['max_id'];
+            $id = str_pad(((string) ((int) $maxId + 1)), 5, "0", STR_PAD_LEFT);
+        } else {
+            $id = "00001";
+        }
+
+        $requete = "
+        START TRANSACTION; 
+
+        INSERT INTO commande (id, dateCommande, montant) 
+        VALUES (:Id, :DateCommande, :Montant); 
+
+        INSERT INTO abonnement (id, dateFinAbonnement, idRevue) 
+        VALUES (:Id, :DateFinAbonnement, :IdRevue); 
+
+        COMMIT;
+        ";
+        $champsRequete['Id'] = $id;
+        $champsRequete['DateCommande'] = $champs['DateCommande'];
+        $champsRequete['DateFinAbonnement'] = $champs['DateFinAbonnement'];
+        $champsRequete['Montant'] = $champs['Montant'];
+        $champsRequete['IdRevue'] = $champs['IdRevue'];
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Supprimer un abonnement dans la BDD
+     * @param mixed $champs
+     * @return int|null
+     */
+    private function supprimerAbonnement($champs) {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $requete = "
+        START TRANSACTION;
+
+        DELETE FROM abonnement WHERE id= :id ; 
+        DELETE FROM commande WHERE id= :id ; 
+
+        COMMIT;
+        ";
+        $champsRequete['id'] = $champs['id'];
         return $this->conn->updateBDD($requete, $champsRequete);
     }
 }
