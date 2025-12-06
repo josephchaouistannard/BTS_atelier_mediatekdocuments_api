@@ -55,7 +55,7 @@ class MyAccessBDD extends AccessBDD {
                 }
                 return $this->selectAllAbonnements();
             case "exemplaire" :
-                return $this->selectExemplairesRevue($champs);
+                return $this->selectExemplairesDocument($champs);
             case "commandes":
                 if (!empty($champs) && isset($champs['id'])) {
                     return $this->selectCommandesDocuments($champs);
@@ -123,6 +123,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->modifierRevue($champs);
             case "commande":
                 return $this->modifierCommandeDocument($champs);
+            case "exemplaire":
+                return $this->modifierExemplaire($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -150,6 +152,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->supprimerCommandeDocument($champs);
             case "abonnement":
                 return $this->supprimerAbonnement($champs);
+            case "exemplaire":
+                return $this->supprimerExemplaire($champs);
             case "" :
                 // return $this->uneFonction(parametres);
             default:                    
@@ -357,26 +361,6 @@ class MyAccessBDD extends AccessBDD {
         $requete .= "order by titre ";
         return $this->conn->queryBDD($requete);
     }	
-
-    /**
-     * récupère tous les exemplaires d'une revue
-     * @param array|null $champs
-     * @return array|null
-     */
-    private function selectExemplairesRevue(?array $champs) : ?array{
-        if(empty($champs)){
-            return null;
-        }
-        if(!array_key_exists('id', $champs)){
-            return null;
-        }
-        $champNecessaire['id'] = $champs['id'];
-        $requete = "Select e.id, e.numero, e.dateAchat, e.photo, e.idEtat ";
-        $requete .= "from exemplaire e join document d on e.id=d.id ";
-        $requete .= "where e.id = :id ";
-        $requete .= "order by e.dateAchat DESC";
-        return $this->conn->queryBDD($requete, $champNecessaire);
-    }
 
     /**
      * Recupère toutes les commandes pour les livres et dvds
@@ -1058,6 +1042,93 @@ class MyAccessBDD extends AccessBDD {
         COMMIT;
         ";
         $champsRequete['id'] = $champs['id'];
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+    
+    /**
+     * récupère tous les exemplaires d'un Document
+     * @param array|null $champs
+     * @return array|null
+     */
+    private function selectExemplairesDocument(?array $champs): ?array
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('id', $champs)) {
+            return null;
+        }
+        $champNecessaire['id'] = $champs['id'];
+        $requete = "SELECT e.id, e.numero, e.dateAchat, e.photo, e.idEtat, et.libelle ";
+        $requete .= "FROM exemplaire e JOIN document d on (e.id=d.id) ";
+        $requete .= "JOIN etat et on (e.idEtat=et.id) ";
+        $requete .= "WHERE e.id = :id ";
+        $requete .= "ORDER BY e.dateAchat DESC";
+        return $this->conn->queryBDD($requete, $champNecessaire);
+    }
+
+    /**
+     * Modifie un exemplaire dans la BDD (actuellement que son etat)
+     * @param mixed $champs
+     * @return int|null
+     */
+    private function modifierExemplaire($champs)
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('Numero', $champs) ||
+            !array_key_exists('IdEtat', $champs) ||
+            !array_key_exists('Id', $champs)
+        ) {
+            return null;
+        }
+
+        // construction de requête
+        $requete = "
+        START TRANSACTION; 
+
+        UPDATE exemplaire 
+        SET idEtat = :IdEtat 
+        WHERE numero = :Numero 
+        AND id = :Id;
+
+        COMMIT;
+        ";
+
+        $champsRequete['Numero'] = $champs['Numero'];
+        $champsRequete['IdEtat'] = $champs['IdEtat'];
+        $champsRequete['Id'] = $champs['Id'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Supprime un exemplaire dans la BDD
+     * @param mixed $champs
+     * @return int|null
+     */
+    private function supprimerExemplaire($champs)
+    {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('Numero', $champs)) {
+            return null;
+        }
+        $requete = "
+        START TRANSACTION;
+
+        DELETE FROM exemplaire 
+        WHERE numero = :Numero 
+        AND id = :Id;
+
+        COMMIT;
+        ";
+        $champsRequete['Numero'] = $champs['Numero'];
+        $champsRequete['Id'] = $champs['Id'];
         return $this->conn->updateBDD($requete, $champsRequete);
     }
 }
