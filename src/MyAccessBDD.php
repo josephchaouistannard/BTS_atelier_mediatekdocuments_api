@@ -31,7 +31,9 @@ class MyAccessBDD extends AccessBDD {
      * @override
      */	
     protected function traitementSelect(string $table, ?array $champs) : ?array{
-        switch($table){  
+        switch($table){
+            case "auth":
+                return $this->authUtilisateur($champs);
             case "livre" :
                 if (!empty($champs) && isset($champs['id'])) {
                     return $this->selectLivre($champs);
@@ -1130,5 +1132,30 @@ class MyAccessBDD extends AccessBDD {
         $champsRequete['Numero'] = $champs['Numero'];
         $champsRequete['Id'] = $champs['Id'];
         return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
+     * Retourne une liste d'utilsateurs dont avec le login et mdp correspondants
+     * @param mixed $champs
+     * @return array|null
+     */
+    private function authUtilisateur($champs) {
+        if (empty($champs)) {
+            return null;
+        }
+        if (!array_key_exists('login', $champs) ||
+            !array_key_exists('pwd', $champs)) {
+            return null;
+        }
+        $requete = "
+        SELECT u.id, u.login, u.idService, s.libelle 
+        FROM utilisateur u 
+        JOIN service s ON (u.idService=s.id) 
+        WHERE login = :login 
+        AND pwd = :pwd ;
+        ";
+        $champsRequete['login'] = $champs['login'];
+        $champsRequete['pwd'] = $champs['pwd'];
+        return $this->conn->queryBDD($requete, $champsRequete);
     }
 }

@@ -49,6 +49,9 @@ abstract class AccessBDD {
             case 'GET' : 
                 return $this->traitementSelect($table, $champs);
             case 'POST' : 
+                if ($table === "auth") {
+                    return $this->traitementSelect($table, $champs);
+                }
                 return $this->traitementInsert($table, $champs);
             case 'PUT' : 
                 return $this->traitementUpdate($table, $id, $champs);
