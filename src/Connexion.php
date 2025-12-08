@@ -9,19 +9,19 @@
 class Connexion {
 
     /**
-     * 
+     *
      * @var Connexion
      */
     private static $instance = null;
     /**
-     * 
+     *
      * @var \PDO
      */
     private $conn = null;
 
     /**
      * constructeur privé : connexion à la BDD
-     * @param string $login 
+     * @param string $login
      * @param string $pwd
      * @param string $bd
      * @param string $server
@@ -31,8 +31,6 @@ class Connexion {
         try {
             $this->conn = new \PDO("mysql:host=$server;dbname=$bd;port=$port", $login, $pwd);
             $this->conn->query('SET CHARACTER SET utf8');
-        } catch (\Exception $e) {
-            throw $e;
         }
     }
     
@@ -78,7 +76,7 @@ class Connexion {
      * @param array|null $param
      * @return array|null lignes récupérées ou null si erreur
      */
-    public function queryBDD(string $requete, ?array $param=null) : ?array{     
+    public function queryBDD(string $requete, ?array $param=null) : ?array{
         try{
             $result = $this->prepareRequete($requete, $param);
             $reponse = $result->execute();
@@ -86,12 +84,12 @@ class Connexion {
                 return $result->fetchAll(PDO::FETCH_ASSOC);
             }else{
                 return null;
-            } 
+            }
         }catch(Exception $e){
             return null;
         }
     }
-	
+    
     /**
      * prépare la requête
      * @param string $requete
@@ -107,9 +105,6 @@ class Connexion {
                 }
             }
             return $requetePrepare;
-        }catch(Exception $e){
-            throw $e;
         }
     }
-    
 }

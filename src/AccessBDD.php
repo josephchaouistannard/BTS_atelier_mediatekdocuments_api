@@ -1,5 +1,5 @@
 <?php
-include_once("Connexion.php");
+use Connexion;
 
 /**
  * Classe qui sollicite ConnexionBDD pour l'accès à la BDD MySQL
@@ -7,29 +7,27 @@ include_once("Connexion.php");
  * et les méthodes abstraites que MyAccessBDD doit redéfinir pour construire les requêtes
  */
 abstract class AccessBDD {
-	
+    
     /**
-     * 
+     *
      * @var Connexion
      */
-    protected $conn = null;	
+    protected $conn = null;
 
     /**
-     * constructeur : récupère les variables d'environnement 
+     * constructeur : récupère les variables d'environnement
      * et récupère l'instance de connexion à la BDD
      */
     protected function __construct(){
         try{
-            // récupération des variables d'environnement de l'accès à la BDD 
+            // récupération des variables d'environnement de l'accès à la BDD
             $login = htmlspecialchars($_ENV['BDD_LOGIN'] ?? '');
             $pwd = htmlspecialchars($_ENV['BDD_PWD'] ?? '');
             $bd = htmlspecialchars($_ENV['BDD_BD'] ?? '');
             $server = htmlspecialchars($_ENV['BDD_SERVER'] ?? '');
-            $port = htmlspecialchars($_ENV['BDD_PORT'] ?? '');    
+            $port = htmlspecialchars($_ENV['BDD_PORT'] ?? '');
             // création de la connexion à la BDD
             $this->conn = Connexion::getInstance($login, $pwd, $bd, $server, $port);
-        }catch(Exception $e){
-            throw $e;
         }
     }
     
@@ -46,20 +44,20 @@ abstract class AccessBDD {
             return null;
         }
         switch ($methodeHTTP){
-            case 'GET' : 
+            case 'GET' :
                 return $this->traitementSelect($table, $champs);
-            case 'POST' : 
+            case 'POST' :
                 if ($table === "auth") {
                     return $this->traitementSelect($table, $champs);
                 }
                 return $this->traitementInsert($table, $champs);
-            case 'PUT' : 
+            case 'PUT' :
                 return $this->traitementUpdate($table, $id, $champs);
-            case 'DELETE' : 
+            case 'DELETE' :
                 return $this->traitementDelete($table, $champs);
             default :
                 return null;
-        }       
+        }
     }
 
     abstract protected function traitementSelect(string $table, ?array $champs) : ?array;

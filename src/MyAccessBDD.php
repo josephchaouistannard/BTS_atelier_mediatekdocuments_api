@@ -1,25 +1,23 @@
 <?php
-include_once("AccessBDD.php");
+use AccessBDD;
 
 /**
  * Classe de construction des requêtes SQL
  * hérite de AccessBDD qui contient les requêtes de base
  * Pour ajouter une requête :
- * - créer la fonction qui crée une requête (prendre modèle sur les fonctions 
+ * - créer la fonction qui crée une requête (prendre modèle sur les fonctions
  *   existantes qui ne commencent pas par 'traitement')
- * - ajouter un 'case' dans un des switch des fonctions redéfinies 
+ * - ajouter un 'case' dans un des switch des fonctions redéfinies
  * - appeler la nouvelle fonction dans ce 'case'
  */
 class MyAccessBDD extends AccessBDD {
-	    
+        
     /**
      * constructeur qui appelle celui de la classe mère
      */
     public function __construct(){
         try{
             parent::__construct();
-        }catch(\Exception $e){
-            throw $e;
         }
     }
 
@@ -29,7 +27,7 @@ class MyAccessBDD extends AccessBDD {
      * @param array|null $champs nom et valeur de chaque champ
      * @return array|null tuples du résultat de la requête ou null si erreur
      * @override
-     */	
+     */
     protected function traitementSelect(string $table, ?array $champs) : ?array{
         switch($table){
             case "auth":
@@ -71,13 +69,10 @@ class MyAccessBDD extends AccessBDD {
             case "public":
             case "rayon":
             case "etat":
-
-            case "" :
-                // return $this->uneFonction(parametres);
             default:
                 // cas général
                 return $this->selectTuplesOneTable($table, $champs);
-        }	
+        }
     }
 
     /**
@@ -86,7 +81,7 @@ class MyAccessBDD extends AccessBDD {
      * @param array|null $champs nom et valeur de chaque champ
      * @return int|null nombre de tuples ajoutés ou null si erreur
      * @override
-     */	
+     */
     protected function traitementInsert(string $table, ?array $champs) : ?int{
         switch($table){
             case "livre":
@@ -99,11 +94,10 @@ class MyAccessBDD extends AccessBDD {
                 return $this->ajouterCommandeDocument($champs);
             case "abonnement":
                 return $this->ajouterAbonnement($champs);
-            case "" :
-                // return $this->uneFonction(parametres);
-            default:                    
+
+            default:
                 // cas général
-                return $this->insertOneTupleOneTable($table, $champs);	
+                return $this->insertOneTupleOneTable($table, $champs);
         }
     }
     
@@ -114,7 +108,7 @@ class MyAccessBDD extends AccessBDD {
      * @param array|null $champs nom et valeur de chaque champ
      * @return int|null nombre de tuples modifiés ou null si erreur
      * @override
-     */	
+     */
     protected function traitementUpdate(string $table, ?string $id, ?array $champs) : ?int{
         switch($table){
             case "livre":
@@ -127,13 +121,11 @@ class MyAccessBDD extends AccessBDD {
                 return $this->modifierCommandeDocument($champs);
             case "exemplaire":
                 return $this->modifierExemplaire($champs);
-            case "" :
-                // return $this->uneFonction(parametres);
-            default:                    
+            default:
                 // cas général
                 return $this->updateOneTupleOneTable($table, $id, $champs);
-        }	
-    }  
+        }
+    }
     
     /**
      * demande de suppression (delete)
@@ -141,7 +133,7 @@ class MyAccessBDD extends AccessBDD {
      * @param array|null $champs nom et valeur de chaque champ
      * @return int|null nombre de tuples supprimés ou null si erreur
      * @override
-     */	
+     */
     protected function traitementDelete(string $table, ?array $champs) : ?int{
         switch($table){
             case "livre":
@@ -156,25 +148,23 @@ class MyAccessBDD extends AccessBDD {
                 return $this->supprimerAbonnement($champs);
             case "exemplaire":
                 return $this->supprimerExemplaire($champs);
-            case "" :
-                // return $this->uneFonction(parametres);
-            default:                    
+            default:
                 // cas général
-                return $this->deleteTuplesOneTable($table, $champs);	
+                return $this->deleteTuplesOneTable($table, $champs);
         }
-    }	    
+    }
         
     /**
      * récupère les tuples d'une seule table
      * @param string $table
      * @param array|null $champs
-     * @return array|null 
+     * @return array|null
      */
     private function selectTuplesOneTable(string $table, ?array $champs) : ?array{
         if(empty($champs)){
             // tous les tuples d'une table
             $requete = "select * from $table;";
-            return $this->conn->queryBDD($requete);  
+            return $this->conn->queryBDD($requete);
         }else{
             // tuples spécifiques d'une table
             $requete = "select * from $table where ";
@@ -182,17 +172,17 @@ class MyAccessBDD extends AccessBDD {
                 $requete .= "$key=:$key and ";
             }
             // (enlève le dernier and)
-            $requete = substr($requete, 0, strlen($requete)-5);	          
+            $requete = substr($requete, 0, strlen($requete)-5);
             return $this->conn->queryBDD($requete, $champs);
         }
-    }	
+    }
 
     /**
      * demande d'ajout (insert) d'un tuple dans une table
      * @param string $table
      * @param array|null $champs
      * @return int|null nombre de tuples ajoutés (0 ou 1) ou null si erreur
-     */	
+     */
     private function insertOneTupleOneTable(string $table, ?array $champs) : ?int{
         if(empty($champs)){
             return null;
@@ -217,10 +207,10 @@ class MyAccessBDD extends AccessBDD {
     /**
      * demande de modification (update) d'un tuple dans une table
      * @param string $table
-     * @param string\null $id
-     * @param array|null $champs 
+     * @param string|null $id
+     * @param array|null $champs
      * @return int|null nombre de tuples modifiés (0 ou 1) ou null si erreur
-     */	
+     */
     private function updateOneTupleOneTable(string $table, ?string $id, ?array $champs) : ?int {
         if(empty($champs)){
             return null;
@@ -234,10 +224,10 @@ class MyAccessBDD extends AccessBDD {
             $requete .= "$key=:$key,";
         }
         // (enlève la dernière virgule)
-        $requete = substr($requete, 0, strlen($requete)-1);				
+        $requete = substr($requete, 0, strlen($requete)-1);
         $champs["id"] = $id;
-        $requete .= " where id=:id;";		
-        return $this->conn->updateBDD($requete, $champs);	        
+        $requete .= " where id=:id;";
+        return $this->conn->updateBDD($requete, $champs);
     }
     
     /**
@@ -256,8 +246,8 @@ class MyAccessBDD extends AccessBDD {
             $requete .= "$key=:$key and ";
         }
         // (enlève le dernier and)
-        $requete = substr($requete, 0, strlen($requete)-5);   
-        return $this->conn->updateBDD($requete, $champs);	        
+        $requete = substr($requete, 0, strlen($requete)-5);
+        return $this->conn->updateBDD($requete, $champs);
     }
  
     /**
@@ -266,8 +256,8 @@ class MyAccessBDD extends AccessBDD {
      * @return array|null
      */
     private function selectTableSimple(string $table) : ?array{
-        $requete = "select * from $table order by libelle;";		
-        return $this->conn->queryBDD($requete);	    
+        $requete = "select * from $table order by libelle;";
+        return $this->conn->queryBDD($requete);
     }
     
     /**
@@ -281,7 +271,7 @@ class MyAccessBDD extends AccessBDD {
         $requete .= "join genre g on g.id=d.idGenre ";
         $requete .= "join public p on p.id=d.idPublic ";
         $requete .= "join rayon r on r.id=d.idRayon ";
-        $requete .= "order by titre ";		
+        $requete .= "order by titre ";
         return $this->conn->queryBDD($requete);
     }
 
@@ -362,7 +352,7 @@ class MyAccessBDD extends AccessBDD {
         $requete .= "join rayon r on r.id=d.idRayon ";
         $requete .= "order by titre ";
         return $this->conn->queryBDD($requete);
-    }	
+    }
 
     /**
      * Recupère toutes les commandes pour les livres et dvds
@@ -520,13 +510,13 @@ class MyAccessBDD extends AccessBDD {
         $requete = "
         START TRANSACTION;
 
-        DELETE FROM commandedocument WHERE id=:id; 
+        DELETE FROM commandedocument WHERE id=:id;
         DELETE FROM commande WHERE id=:id;
 
         COMMIT;
         ";
 
-        return $this->conn->updateBDD($requete, $champsRequete); 
+        return $this->conn->updateBDD($requete, $champsRequete);
     }
 
     /**
@@ -972,7 +962,7 @@ class MyAccessBDD extends AccessBDD {
         FROM abonnement a join commande c on (a.id=c.id) 
         WHERE a.dateFinAbonnement < DATE_ADD(CURDATE(), INTERVAL 30 DAY) 
         AND a.dateFinAbonnement >= CURDATE() 
-        ORDER BY a.dateFinAbonnement ASC;   
+        ORDER BY a.dateFinAbonnement ASC;
         ";
         return $this->conn->queryBDD($requete);
     }
@@ -1005,13 +995,13 @@ class MyAccessBDD extends AccessBDD {
         }
 
         $requete = "
-        START TRANSACTION; 
+        START TRANSACTION;
 
         INSERT INTO commande (id, dateCommande, montant) 
-        VALUES (:Id, :DateCommande, :Montant); 
+        VALUES (:Id, :DateCommande, :Montant);
 
         INSERT INTO abonnement (id, dateFinAbonnement, idRevue) 
-        VALUES (:Id, :DateFinAbonnement, :IdRevue); 
+        VALUES (:Id, :DateFinAbonnement, :IdRevue);
 
         COMMIT;
         ";
@@ -1038,8 +1028,8 @@ class MyAccessBDD extends AccessBDD {
         $requete = "
         START TRANSACTION;
 
-        DELETE FROM abonnement WHERE id= :id ; 
-        DELETE FROM commande WHERE id= :id ; 
+        DELETE FROM abonnement WHERE id= :id ;
+        DELETE FROM commande WHERE id= :id ;
 
         COMMIT;
         ";
@@ -1090,7 +1080,7 @@ class MyAccessBDD extends AccessBDD {
 
         // construction de requête
         $requete = "
-        START TRANSACTION; 
+        START TRANSACTION;
 
         UPDATE exemplaire 
         SET idEtat = :IdEtat 
