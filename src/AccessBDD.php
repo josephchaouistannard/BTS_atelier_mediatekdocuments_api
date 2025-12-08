@@ -1,5 +1,5 @@
 <?php
-use Connexion;
+include_once 'Connexion.php';
 
 /**
  * Classe qui sollicite ConnexionBDD pour l'accès à la BDD MySQL
@@ -28,6 +28,8 @@ abstract class AccessBDD {
             $port = htmlspecialchars($_ENV['BDD_PORT'] ?? '');
             // création de la connexion à la BDD
             $this->conn = Connexion::getInstance($login, $pwd, $bd, $server, $port);
+        } catch (Exception $e) {
+            throw $e;
         }
     }
     

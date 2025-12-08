@@ -1,5 +1,5 @@
 <?php
-use AccessBDD;
+include_once 'AccessBDD.php';
 
 /**
  * Classe de construction des requêtes SQL
@@ -18,6 +18,8 @@ class MyAccessBDD extends AccessBDD {
     public function __construct(){
         try{
             parent::__construct();
+        } catch (Exception $e) {
+            throw $e;
         }
     }
 

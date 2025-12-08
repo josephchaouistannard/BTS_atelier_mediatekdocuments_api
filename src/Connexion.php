@@ -31,6 +31,8 @@ class Connexion {
         try {
             $this->conn = new \PDO("mysql:host=$server;dbname=$bd;port=$port", $login, $pwd);
             $this->conn->query('SET CHARACTER SET utf8');
+        } catch (Exception $e) {
+            throw $e;
         }
     }
     
@@ -105,6 +107,8 @@ class Connexion {
                 }
             }
             return $requetePrepare;
+        } catch (Exception $e) {
+            throw $e;
         }
     }
 }
