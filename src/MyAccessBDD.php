@@ -96,7 +96,8 @@ class MyAccessBDD extends AccessBDD {
                 return $this->ajouterCommandeDocument($champs);
             case "abonnement":
                 return $this->ajouterAbonnement($champs);
-
+            case "exemplaire":
+                return $this->ajouterExemplaire($champs);
             default:
                 // cas général
                 return $this->insertOneTupleOneTable($table, $champs);
@@ -1062,6 +1063,39 @@ class MyAccessBDD extends AccessBDD {
     }
 
     /**
+     * Ajouter un exemplaire dans la BDD
+     * @param mixed $champs
+     * @return int|null
+     */
+    private function ajouterExemplaire($champs) {
+        if (empty($champs)) {
+            return null;
+        }
+        // vérifier champs obligatoires
+        if (
+            !array_key_exists('Numero', $champs) ||
+            !array_key_exists('IdEtat', $champs) ||
+            !array_key_exists('Id', $champs) ||
+            !array_key_exists('DateAchat', $champs)
+        ) {
+            return null;
+        }
+
+        $requete = "
+        START TRANSACTION; 
+        insert into exemplaire (Numero,Photo,DateAchat,IdEtat,Id) 
+        values (:Numero,:Photo,:DateAchat,:IdEtat,:Id);
+        COMMIT;";
+        $champsRequete['Numero'] = $champs['Numero'];
+        $champsRequete['Photo'] = $champs['Photo'];
+        $champsRequete['DateAchat'] = $champs['DateAchat'];
+        $champsRequete['IdEtat'] = $champs['IdEtat'];
+        $champsRequete['Id'] = $champs['Id'];
+
+        return $this->conn->updateBDD($requete, $champsRequete);
+    }
+
+    /**
      * Modifie un exemplaire dans la BDD (actuellement que son etat)
      * @param mixed $champs
      * @return int|null
@@ -1109,7 +1143,9 @@ class MyAccessBDD extends AccessBDD {
         if (empty($champs)) {
             return null;
         }
-        if (!array_key_exists('Numero', $champs)) {
+        if (!array_key_exists('Numero', $champs) ||
+            !array_key_exists('Id', $champs)
+        ) {
             return null;
         }
         $requete = "
